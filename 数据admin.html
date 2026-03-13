@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>实验数据管理后台</title>
+    <style>
+        body {
+            font-family: "Microsoft Yahei", Arial, sans-serif;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .login-box {
+            max-width: 350px;
+            margin: 100px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .login-box h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .login-box button:hover {
+            background: #0b7dda;
+        }
+        .login-box .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .admin-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .admin-panel h2 {
+            color: #333;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 10px;
+        }
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: #e7f3ff;
+            padding: 15px 25px;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        .stat-card span {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+            margin-left: 10px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+            overflow-x: auto;
+            display: block;
+        }
+        .data-table th {
+            background: #f2f2f2;
+            font-weight: 600;
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2;
+        }
+        .data-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .data-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        .button-group {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-blue {
+            background: #2196F3;
+        }
+        .btn-green {
+            background: #4CAF50;
+        }
+        .btn-red {
+            background: #f44336;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .search-box {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .empty-data {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录框 -->
+    <div id="loginDiv" class="login-box">
+        <h2>🔐 管理员登录</h2>
+        <input type="password" id="password" placeholder="请输入管理员密码">
+        <button onclick="checkPassword()">登录</button>
+        <div id="loginError" class="error"></div>
+    </div>
+
+    <!-- 管理面板（登录后显示） -->
+    <div id="adminPanel" class="admin-panel hidden">
+        <h2>📊 牛顿环实验数据总览</h2>
+        
+        <!-- 统计信息 -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                总数据条数：<span id="totalCount">0</span>
+            </div>
+            <div class="stat-card">
+                学生人数：<span id="studentCount">0</span>
+            </div>
+            <div class="stat-card">
+                最新保存：<span id="latestTime">无</span>
+            </div>
+        </div>
+
+        <!-- 操作按钮组 -->
+        <div class="button-group">
+            <button class="btn btn-blue" onclick="exportAll()">📥 导出全部CSV</button>
+            <button class="btn btn-green" onclick="exportExcel()">📊 导出Excel格式</button>
+            <button class="btn btn-red" onclick="clearAllData()">🗑️ 清空所有数据</button>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="搜索姓名或学号..." onkeyup="searchData()">
+            <button class="btn btn-blue" onclick="searchData()">搜索</button>
+        </div>
+
+        <!-- 数据表格 -->
+        <div id="dataList">加载中...</div>
+    </div>
+
+    <script>
+        // 管理员密码（已设为123456）
+        const ADMIN_PASSWORD = '123456';
+        
+        // 从本地存储加载数据
+        function loadData() {
+            const data = localStorage.getItem('newtonExperimentData');
+            return data ? JSON.parse(data) : [];
+        }
+        
+        // 保存数据到本地存储（供学生端调用）
+        window.saveExperimentData = function(data) {
+            const allData = loadData();
+            const newData = {
+                ...data,
+                saveTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+                id: Date.now() + Math.random().toString(36).substr(2, 9)
+            };
+            allData.push(newData);
+            localStorage.setItem('newtonExperimentData', JSON.stringify(allData));
+            return { success: true, id: newData.id };
+        };
+        
+        // 处理JSONP请求（兼容学生端保存）
+        window.handleSave = function(response) {
+            console.log('保存成功', response);
+        };
+        
+        // 检查URL参数，处理保存请求
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const callback = urlParams.get('callback');
+            const dataStr = urlParams.get('data');
+            
+            if (callback && dataStr) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(dataStr));
+                    const result = window.saveExperimentData(data);
+                    window[callback](result);
+                } catch (e) {
+                    console.error('保存失败', e);
+                }
+            }
+        })();
+        
+        // 登录验证
+        function checkPassword() {
+            const pwd = document.getElementById('password').value;
+            if (pwd === ADMIN_PASSWORD) {
+                document.getElementById('loginDiv').classList.add('hidden');
+                document.getElementById('adminPanel').classList.remove('hidden');
+                displayData();
+                updateStats();
+            } else {
+                document.getElementById('loginError').innerText = '❌ 密码错误，请重试';
+            }
+        }
+        
+        // 更新统计信息
+        function updateStats() {
+            const data = loadData();
+            document.getElementById('totalCount').innerText = data.length;
+            
+            // 统计学生人数（按学号去重）
+            const students = new Set(data.map(item => item.studentId));
+            document.getElementById('studentCount').innerText = students.size;
+            
+            // 最新保存时间
+            if (data.length > 0) {
+                const latest = data.sort((a, b) => new Date(b.saveTime) - new Date(a.saveTime))[0];
+                document.getElementById('latestTime').innerText = latest.saveTime;
+            }
+        }
+        
+        // 显示数据表格
+        function displayData(filteredData = null) {
+            const data = filteredData || loadData();
+            
+            if (data.length === 0) {
+                document.getElementById('dataList').innerHTML = '<div class="empty-data">📭 暂无实验数据</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><tr>' +
+                '<th>序号</th>' +
+                '<th>姓名</th>' +
+                '<th>学号</th>' +
+                '<th>实验日期</th>' +
+                '<th>左读数(22-13)</th>' +
+                '<th>右读数(22-13)</th>' +
+                '<th>左读数(12-3)</th>' +
+                '<th>右读数(12-3)</th>' +
+                '<th>保存时间</th>' +
+                '<th>操作</th></tr>';
+            
+            data.forEach((item, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${item.studentName}</td>
+                    <td>${item.studentId}</td>
+                    <td>${item.experimentDate || '未知'}</td>
+                    <td>${item.data?.left22to13?.join(', ') || '-'}</td>
+                    <td>${item.data?.right22to13?.join(', ') || '-'}</td>
+                    <td>${item.data?.left12to3?.join(', ') || '-'}</td>
+                    <td>${item.data?.right12to3?.join(', ') || '-'}</td>
+                    <td>${item.saveTime}</td>
+                    <td>
+                        <button onclick="downloadSingle('${item.id}')" style="padding:5px; background:#4CAF50; color:white; border:none; border-radius:3px; cursor:pointer;">下载</button>
+                    </td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            document.getElementById('dataList').innerHTML = html;
+        }
+        
+        // 搜索功能
+        function searchData() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const data = loadData();
+            
+            if (!keyword) {
+                displayData(data);
+                return;
+            }
+            
+            const filtered = data.filter(item => 
+                item.studentName.toLowerCase().includes(keyword) ||
+                item.studentId.includes(keyword)
+            );
+            
+            displayData(filtered);
+        }
+        
+        // 导出全部为CSV
+        function exportAll() {
+            const data = loadData();
+            let csv = '姓名,学号,实验日期,左读数22-13,右读数22-13,左读数12-3,右读数12-3,保存时间\n';
+            
+            data.forEach(item => {
+                csv += `${item.studentName},${item.studentId},${item.experimentDate},`;
+                csv += `"${item.data?.left22to13?.join(' ') || ''}",`;
+                csv += `"${item.data?.right22to13?.join(' ') || ''}",`;
+                csv += `"${item.data?.left12to3?.join(' ') || ''}",`;
+                csv += `"${item.data?.right12to3?.join(' ') || ''}",`;
+                csv += `${item.saveTime}\n`;
+            });
+            
+            downloadFile(csv, `牛顿环数据_${new Date().toISOString().slice(0,10)}.csv`);
+        }
+        
+        // 导出Excel格式（制表符分隔）
+        function exportExcel() {
+            const data = loadData();
+            let excel = '姓名\t学号\t实验日期\t左读数22-13\t右读数22-13\t左读数12-3\t右读数12-3\t保存时间\n';
+            
+            data.forEach(item => {
+                excel += `${item.studentName}\t${item.studentId}\t${item.experimentDate}\t`;
+                excel += `${item.data?.left22to13?.join(' ') || ''}\t`;
+                excel += `${item.data?.right22to13?.join(' ') || ''}\t`;
+                excel += `${item.data?.left12to3?.join(' ') || ''}\t`;
+                excel += `${item.data?.right12to3?.join(' ') || ''}\t`;
+                excel += `${item.saveTime}\n`;
+            });
+            
+            downloadFile(excel, `牛顿环数据_${new Date().toISOString().slice(0,10)}.xls`);
+        }
+        
+        // 下载单个数据
+        function downloadSingle(id) {
+            const data = loadData();
+            const item = data.find(d => d.id === id);
+            
+            if (!item) return;
+            
+            let csv = '姓名,学号,实验日期,保存时间\n';
+            csv += `${item.studentName},${item.studentId},${item.experimentDate},${item.saveTime}\n\n`;
+            
+            csv += '左读数(22-13),' + (item.data?.left22to13?.join(',') || '') + '\n';
+            csv += '右读数(22-13),' + (item.data?.right22to13?.join(',') || '') + '\n';
+            csv += '左读数(12-3),' + (item.data?.left12to3?.join(',') || '') + '\n';
+            csv += '右读数(12-3),' + (item.data?.right12to3?.join(',') || '') + '\n';
+            
+            downloadFile(csv, `${item.studentName}_${item.studentId}_数据.csv`);
+        }
+        
+        // 下载文件通用函数
+        function downloadFile(content, filename) {
+            const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // 清空所有数据（需要二次确认）
+        function clearAllData() {
+            if (confirm('⚠️ 确定要清空所有数据吗？此操作不可恢复！')) {
+                if (confirm('再次确认：所有实验数据将被永久删除')) {
+                    localStorage.removeItem('newtonExperimentData');
+                    displayData();
+                    updateStats();
+                    alert('✅ 所有数据已清空');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
